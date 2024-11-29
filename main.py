@@ -1,8 +1,10 @@
+from venv import create
+
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col
 from pyspark.sql.types import StructType, StructField, IntegerType, FloatType
 
-# %% load the data
+# %% load the data, create utility matrix, for 7. a)
 dat = "./dat"
 user_artist = f"{dat}/user_artist_data_small.txt"
 artist_alias = f"{dat}/artist_alias_small.txt"
@@ -49,7 +51,7 @@ schema = StructType([
 ua_matrix = spark.createDataFrame(ua, schema)
 
 
-# fn for computing person similarity
+# fn for computing Pearson similarity, for 7. b)
 def compute_pearson_similarity(userid1, userid2, ua_matrix: DataFrame) -> float:
     user1 = (ua_matrix
              .select(["userid", "artistid", "playcount"])
@@ -63,7 +65,7 @@ def compute_pearson_similarity(userid1, userid2, ua_matrix: DataFrame) -> float:
     return user_joined.corr(method='pearson', col1="playcount1", col2="playcount2")
 
 
-# fn for computing knn
+# fn for computing knn, for 7. c)
 def compute_knn(user, ua_matrix: DataFrame, k):
     others = ua_matrix.select("userid").where(col("userid") != user).distinct()
 
@@ -83,4 +85,18 @@ def compute_knn(user, ua_matrix: DataFrame, k):
     return similarities.dropna(how='any').sort("similarity", ascending=False).take(k)
 
 
-print(compute_knn(1059637, ua_matrix, 10))
+
+# %% test KNN on a user of random choice
+# print(compute_knn(1059637, ua_matrix, 10))
+
+# %% Choose S={1252408, 668, 1268522, 1018110, 1014609} (artistid)
+# or {'Trevor Jones & Randy Edelman', 'Count Basie', 'Auf Der Maur', 'Lars Winnerbäck', 'Mötley Crüe'}
+# by looking up `artist_data_small.txt`
+# id of U: 114514, split={1, 1, 4, 5, 9}
+uid   = [114514] * 5
+S     = [1252408, 668, 1268522, 1018110, 1014609]
+split = [1, 1, 4, 5, 9]
+au_data = zip(uid, S, split)
+
+artificial_user = spark.createDataFrame(au_data, schema)
+ua_matrix = ua_matrix.union(artificial_user)
